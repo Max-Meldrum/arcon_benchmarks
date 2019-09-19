@@ -1,0 +1,6 @@
+target/
+.swp.rs
+.rs.swp
+.swp
+data
+sensor_data

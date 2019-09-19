@@ -1,0 +1,11 @@
+[package]
+name = "arcon_local"
+version = "0.1.0"
+authors = ["Max Meldrum <max@meldrum.se>"]
+edition = "2018"
+
+[dependencies]
+arcon = { path = "../../arcon/execution-plane/arcon" }
+serde = { version = "1.0.63", features = ["derive"] }
+rand = "0.6.5"
+bincode = "1.1.4"

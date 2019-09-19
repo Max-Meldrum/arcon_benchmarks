@@ -1,0 +1,4 @@
+[submodule "arcon"]
+  path = arcon
+  url = git@github.com:Max-Meldrum/arcon.git
+  branch = benchmarks

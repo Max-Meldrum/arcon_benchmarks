@@ -1,0 +1,6 @@
+target/
+.swp.rs
+.rs.swp
+.scala.swp
+.swp
+data
