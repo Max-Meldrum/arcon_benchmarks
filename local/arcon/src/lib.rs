@@ -10,6 +10,7 @@ use rand::Rng;
 
 pub mod throughput_sink;
 pub mod source;
+pub mod item_source;
 
 #[key_by(id)]
 #[arcon]
@@ -81,8 +82,8 @@ pub struct Item {
 
 pub fn item_row() -> (u64, u64) {
     let mut rng = rand::thread_rng();
-    let id = rng.gen_range(1, 100);
-    let price = rng.gen_range(1, 10);
+    let id = rng.gen_range(1, 10);
+    let price = rng.gen_range(1, 100);
     (id as u64, price as u64)
 }
 
