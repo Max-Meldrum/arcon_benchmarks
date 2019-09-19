@@ -15,7 +15,6 @@ where
     avg_throughput: f32,
     throughput_counter: u64,
     throughput_sum: f32,
-    count: u64,
 }
 
 impl<A> ThroughputSink<A> 
@@ -32,7 +31,6 @@ where
             avg_throughput: 0.0,
             throughput_counter: 0,
             throughput_sum: 0.0,
-            count: 0,
         }
     }
 

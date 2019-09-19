@@ -9,6 +9,7 @@ pub use arcon::macros::*;
 use rand::Rng;
 
 pub mod throughput_sink;
+pub mod source;
 
 #[key_by(id)]
 #[arcon]
@@ -75,7 +76,6 @@ pub fn read_sensor_data(path: &str) -> Vec<(u64, Vec<i32>)> {
 pub struct Item {
     pub id: u64,
     pub price: u64,
-    pub timestamp: u64,
 }
 
 
@@ -119,7 +119,6 @@ pub fn read_data(path: &str) -> Vec<Item> {
             Item {
                 id,
                 price,
-                timestamp: 1,
             }
         })
         .collect()

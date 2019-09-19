@@ -9,3 +9,4 @@ arcon = { path = "../../arcon/execution-plane/arcon" }
 serde = { version = "1.0.63", features = ["derive"] }
 rand = "0.6.5"
 bincode = "1.1.4"
+clap = "2.33.0"
