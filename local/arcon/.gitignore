@@ -1,6 +1,9 @@
 target/
 .swp.rs
-.rs.swp
+.*.rs.swp
+.*.rs.swn
+.*.rs.swm
+.*.rs.swo
 .swp
 data
 sensor_data

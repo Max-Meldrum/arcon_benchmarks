@@ -1,14 +1,15 @@
+use crate::SensorData;
 use arcon::prelude::*;
 
 #[derive(ComponentDefinition)]
-pub struct ItemSource {
+pub struct SensorSource {
     ctx: ComponentContext<Self>,
-    channel_strategy: Box<dyn ChannelStrategy<crate::Item>>,
+    channel_strategy: Box<dyn ChannelStrategy<SensorData>>,
 }
 
-impl ItemSource {
-    pub fn new(channel_strategy: Box<dyn ChannelStrategy<crate::Item>>) -> Self {
-        ItemSource {
+impl SensorSource {
+    pub fn new(channel_strategy: Box<dyn ChannelStrategy<SensorData>>) -> Self {
+        SensorSource {
             ctx: ComponentContext::new(),
             channel_strategy,
         }
@@ -16,24 +17,24 @@ impl ItemSource {
 
     fn send_elements(&mut self) {
         loop {
-            let (id, price) = crate::item_row();
-            let item = crate::Item {
+            let (id, values) = crate::sensor_data_row();
+            let sensor_data = SensorData {
                 id: id,
-                price: price,
+                vec: ArconVec::new(values),
             };
             let _ = self.channel_strategy.output(
-                ArconMessage::element(item, None, "source".to_string()),
+                ArconMessage::element(sensor_data, None, "source".to_string()),
                 &self.ctx.system(),
             );
         }
     }
 }
 
-impl Provide<ControlPort> for ItemSource {
+impl Provide<ControlPort> for SensorSource {
     fn handle(&mut self, _event: ControlEvent) -> () {}
 }
 
-impl Actor for ItemSource {
+impl Actor for SensorSource {
     type Message = String;
 
     fn receive_local(&mut self, _msg: Self::Message) {

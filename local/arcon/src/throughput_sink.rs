@@ -1,7 +1,6 @@
 use arcon::prelude::*;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-
 #[derive(ComponentDefinition)]
 pub struct ThroughputSink<A>
 where
@@ -17,7 +16,7 @@ where
     throughput_sum: f32,
 }
 
-impl<A> ThroughputSink<A> 
+impl<A> ThroughputSink<A>
 where
     A: ArconType + 'static,
 {
@@ -36,29 +35,39 @@ where
 
     fn handle_event(&mut self, _event: &ArconEvent<A>) {
         if self.total_recv == 0 {
-            println!("ThroughputLogging {}, {}", self.get_current_time(), self.total_recv);
+            println!(
+                "ThroughputLogging {}, {}",
+                self.get_current_time(),
+                self.total_recv
+            );
         }
 
         self.total_recv += 1;
 
         if self.total_recv % self.log_freq == 0 {
             let current_time = self.get_current_time();
-            let throughput = (self.total_recv - self.last_total_recv) as f32 / (current_time - self.last_time) as f32 * 1000.0;
-            if throughput != 0.0 {
-                self.throughput_counter +=1;
-                self.throughput_sum += throughput;
+            let throughput =
+                (self.total_recv - self.last_total_recv) / (current_time - self.last_time) * 1000;
+            if throughput != 0 {
+                self.throughput_counter += 1;
+                self.throughput_sum += throughput as f32;
                 self.avg_throughput = self.throughput_sum / self.throughput_counter as f32;
             }
             println!("Throughput {}, Average {}", throughput, self.avg_throughput);
             self.last_time = current_time;
             self.last_total_recv = self.total_recv;
-            println!("ThroughputLogging {}, {}", self.get_current_time(), self.total_recv);
+            println!(
+                "ThroughputLogging {}, {}",
+                self.get_current_time(),
+                self.total_recv
+            );
         }
     }
 
     fn get_current_time(&self) -> u64 {
         let start = SystemTime::now();
-        let since_the_epoch = start.duration_since(UNIX_EPOCH)
+        let since_the_epoch = start
+            .duration_since(UNIX_EPOCH)
             .expect("Time went backwards");
 
         since_the_epoch.as_millis() as u64
@@ -72,8 +81,7 @@ where
     fn handle(&mut self, _event: ControlEvent) -> () {}
 }
 
-
-impl<A> Actor for ThroughputSink<A> 
+impl<A> Actor for ThroughputSink<A>
 where
     A: ArconType + 'static,
 {

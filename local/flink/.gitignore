@@ -1,7 +1,8 @@
 target/
 .bloop
 .metals
-.scala.swp
-.scala.swo
-.scala.swn
+.*.scala.swp
+.*.scala.swm
+.*.scala.swo
+.*.scala.swn
 

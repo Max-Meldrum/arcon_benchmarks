@@ -8,9 +8,9 @@ pub use arcon::data::*;
 pub use arcon::macros::*;
 use rand::Rng;
 
-pub mod throughput_sink;
-pub mod source;
 pub mod item_source;
+pub mod sensor_source;
+pub mod throughput_sink;
 
 #[key_by(id)]
 #[arcon]
@@ -79,7 +79,6 @@ pub struct Item {
     pub price: u64,
 }
 
-
 pub fn item_row() -> (u64, u64) {
     let mut rng = rand::thread_rng();
     let id = rng.gen_range(1, 10);
@@ -117,10 +116,7 @@ pub fn read_data(path: &str) -> Vec<Item> {
             let s: Vec<&str> = line.split(" ").collect();
             let id = s[0].parse::<u64>().unwrap();
             let price = s[1].parse::<u64>().unwrap();
-            Item {
-                id,
-                price,
-            }
+            Item { id, price }
         })
         .collect()
 }
