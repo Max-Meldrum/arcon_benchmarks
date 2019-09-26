@@ -9,8 +9,7 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceCont
 
 object ChainingMuch {
   def main(args: Array[String]) {
-    val env = StreamExecutionEnvironment.createLocalEnvironment()
-    1 to 20 foreach { _ => run(env) }
+    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     run(env)
   }
 
@@ -18,7 +17,9 @@ object ChainingMuch {
     val stream = env.addSource(new SourceFunction[Int]() {
        override def run(ctx: SourceContext[Int]) = {
          var counter: Long = 0
-         while (counter < 10000000) {
+         val r = new scala.util.Random
+         val limit: Long = 10000000
+         while (counter < limit) {
            ctx.collect(10)
            counter += 1
          }
@@ -26,7 +27,6 @@ object ChainingMuch {
        override def cancel(): Unit =  {}
     })
       .map(num => num + 1).setParallelism(1)
-      .startNewChain()
       .map(num => num + 1).setParallelism(1)
       .map(num => num + 1).setParallelism(1)
       .map(num => num + 1).setParallelism(1)
