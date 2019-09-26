@@ -12,18 +12,21 @@ case class EnrichedSensor(id: Int, total: Int)
 
 object Fusion {
   def main(args: Array[String]) {
-    val env = StreamExecutionEnvironment.createLocalEnvironment()
+    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     run(env)
   }
 
   def run(env: StreamExecutionEnvironment) = {
     val stream = env.addSource(new SourceFunction[SensorData]() {
        override def run(ctx: SourceContext[SensorData]) = {
-         while (true) {
-           val r = new scala.util.Random
+         var counter: Long = 0
+         val r = new scala.util.Random
+         val limit: Long = 10000000
+         while (counter < limit) {
            val id = 1 + r.nextInt(( 10 - 1) + 1)
            val vec = (1 to 20).map(_ => 1 + r.nextInt(100)).toVector
            ctx.collect(new SensorData(id, vec))
+           counter += 1
          }
        }
        override def cancel(): Unit =  {}
