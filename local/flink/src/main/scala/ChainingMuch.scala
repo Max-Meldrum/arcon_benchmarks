@@ -10,7 +10,8 @@ import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceCont
 object ChainingMuch {
   def main(args: Array[String]) {
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
-    run(env)
+    // JVM Warmup
+    1 to 5 foreach { _ => run(env) }
   }
 
   def run(env: StreamExecutionEnvironment) = {

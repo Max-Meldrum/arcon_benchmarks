@@ -7,7 +7,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext
 
-object NoChaining {
+object MapLoop {
   def main(args: Array[String]) {
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     // JVM Warmup
@@ -18,7 +18,6 @@ object NoChaining {
     val stream = env.addSource(new SourceFunction[Int]() {
        override def run(ctx: SourceContext[Int]) = {
          var counter: Long = 0
-         val r = new scala.util.Random
          val limit: Long = 10000000
          while (counter < limit) {
            ctx.collect(10)
@@ -27,7 +26,13 @@ object NoChaining {
        }
        override def cancel(): Unit =  {}
     })
-      .map(num => num + 50).setParallelism(1)
+      .map(num => {
+        var c = 0
+        for (i <- 0 to 49) {
+          c += 1
+        }
+        c
+      }).setParallelism(1)
       .addSink(new ThroughputSink[Int](100000)).setParallelism(1)
 
     println(env.getExecutionPlan)
