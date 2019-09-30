@@ -3,9 +3,8 @@ extern crate arcon_local;
 extern crate clap;
 
 use arcon_local::arcon::prelude::*;
-use arcon_local::sensor_source::SensorSource;
+use arcon_local::map_source::MapSource;
 use arcon_local::throughput_sink::ThroughputSink;
-use arcon_local::{EnrichedSensor, SensorData};
 use clap::{App, AppSettings, Arg, SubCommand};
 use std::sync::Arc;
 
@@ -62,7 +61,7 @@ fn main() {
                 .parse::<u64>()
                 .unwrap();
 
-            exec_one(log_freq, kompact_throughput, dedicated);
+            exec(log_freq, kompact_throughput, dedicated);
         }
         _ => {
             panic!("Wrong arg");
@@ -74,7 +73,8 @@ fn fetch_args() -> Vec<String> {
     std::env::args().collect()
 }
 
-fn exec_one(log_freq: u64, kompact_throughput: u64, dedicated: bool) {
+
+fn exec(log_freq: u64, kompact_throughput: u64, dedicated: bool) {
     let mut cfg = KompactConfig::default();
     cfg.threads(3 as usize);
     if !dedicated {
@@ -84,43 +84,39 @@ fn exec_one(log_freq: u64, kompact_throughput: u64, dedicated: bool) {
 
     let system = cfg.build().expect("KompactSystem");
 
-    let sink = system.create(move || ThroughputSink::<EnrichedSensor>::new(log_freq));
+    let sink = system.create(move || ThroughputSink::<u32>::new(log_freq));
     system.start(&sink);
     std::thread::sleep(std::time::Duration::from_secs(1));
 
-    let code = "|id: u32, x:vec[i32]|
-            let m = merger[i32, +];
-            let op = for(x, m, |b: merger[i32, +], i, e|  let mapped = e + 5;
-                if(mapped > 50, merge(b, mapped), b));
-            {id, result(op)}";
+    let code = "|num: u32| num + u32(10)";
 
     let module = Arc::new(Module::new(code.to_string()).unwrap());
 
-    let sink_ref: ActorRef<ArconMessage<EnrichedSensor>> = sink.actor_ref();
+    let sink_ref: ActorRef<ArconMessage<u32>> = sink.actor_ref();
     let channel = Channel::Local(sink_ref);
-    let channel_strategy: Box<dyn ChannelStrategy<EnrichedSensor>> =
+    let channel_strategy: Box<dyn ChannelStrategy<u32>> =
         Box::new(Forward::new(channel));
 
-    let node = Node::<SensorData, EnrichedSensor>::new(
-        "sensor".to_string(),
+    let node = Node::<u32, u32>::new(
+        "node".to_string(),
         vec!["source".to_string()],
         channel_strategy,
         Box::new(Map::new(module)),
     );
 
-    let sensor = if dedicated {
+    let node_comp = if dedicated {
         system.create_dedicated(move || node)
     } else {
         system.create(move || node)
     };
-    system.start(&sensor);
+    system.start(&node_comp);
 
-    let sensor_ref: ActorRef<ArconMessage<SensorData>> = sensor.actor_ref();
-    let sensor_channel = Channel::Local(sensor_ref);
-    let sensor_strategy: Box<dyn ChannelStrategy<SensorData>> =
-        Box::new(Forward::new(sensor_channel));
+    let node_ref: ActorRef<ArconMessage<u32>> = node_comp.actor_ref();
+    let node_channel = Channel::Local(node_ref);
+    let node_strategy: Box<dyn ChannelStrategy<u32>> =
+        Box::new(Forward::new(node_channel));
 
-    let source = system.create_dedicated(move || SensorSource::new(sensor_strategy));
+    let source = system.create_dedicated(move || MapSource::new(node_strategy));
     system.start(&source);
 
     std::thread::sleep(std::time::Duration::from_secs(1));

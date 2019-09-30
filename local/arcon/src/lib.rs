@@ -10,6 +10,7 @@ use rand::Rng;
 
 pub mod item_source;
 pub mod sensor_source;
+pub mod map_source;
 pub mod throughput_sink;
 
 #[key_by(id)]

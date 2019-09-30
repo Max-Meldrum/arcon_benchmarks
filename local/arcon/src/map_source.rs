@@ -1,15 +1,14 @@
-use crate::SensorData;
 use arcon::prelude::*;
 
 #[derive(ComponentDefinition)]
-pub struct SensorSource {
+pub struct MapSource {
     ctx: ComponentContext<Self>,
-    channel_strategy: Box<dyn ChannelStrategy<SensorData>>,
+    channel_strategy: Box<dyn ChannelStrategy<u32>>,
 }
 
-impl SensorSource {
-    pub fn new(channel_strategy: Box<dyn ChannelStrategy<SensorData>>) -> Self {
-        SensorSource {
+impl MapSource {
+    pub fn new(channel_strategy: Box<dyn ChannelStrategy<u32>>) -> Self {
+        MapSource {
             ctx: ComponentContext::new(),
             channel_strategy,
         }
@@ -17,15 +16,10 @@ impl SensorSource {
 
     fn send_elements(&mut self) {
         let mut counter: u64 = 0;
-        let limit: u64 = 5000000;
+        let limit: u64 = 10000000;
         while counter < limit {
-            let (id, values) = crate::sensor_data_row();
-            let sensor_data = SensorData {
-                id: id,
-                vec: ArconVec::new(values),
-            };
             let _ = self.channel_strategy.output(
-                ArconMessage::element(sensor_data, None, "source".to_string()),
+                ArconMessage::element(10 as u32, None, "source".to_string()),
                 &self.ctx.system(),
             );
 
@@ -34,11 +28,11 @@ impl SensorSource {
     }
 }
 
-impl Provide<ControlPort> for SensorSource {
+impl Provide<ControlPort> for MapSource {
     fn handle(&mut self, _event: ControlEvent) -> () {}
 }
 
-impl Actor for SensorSource {
+impl Actor for MapSource {
     type Message = String;
 
     fn receive_local(&mut self, _msg: Self::Message) {
