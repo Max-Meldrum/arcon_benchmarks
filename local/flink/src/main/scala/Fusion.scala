@@ -22,7 +22,7 @@ object Fusion {
        override def run(ctx: SourceContext[SensorData]) = {
          var counter: Long = 0
          val r = new scala.util.Random
-         val limit: Long = 10000000
+         val limit: Long = 5000000
          while (counter < limit) {
            val id = 1 + r.nextInt(( 10 - 1) + 1)
            val vec = (1 to 20).map(_ => 1 + r.nextInt(100)).toVector
