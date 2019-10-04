@@ -7,7 +7,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext
 
-object NoChaining {
+object InstructionFusion {
   def main(args: Array[String]) {
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     // JVM Warmup
@@ -32,5 +32,6 @@ object NoChaining {
 
     println(env.getExecutionPlan)
     val res = env.execute()
+    println("The job took " + res.getNetRuntime() + " to execute");
   }
 }

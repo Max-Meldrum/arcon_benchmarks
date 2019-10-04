@@ -7,10 +7,7 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext
 
-case class SensorData(id: Int, vec: Seq[Int])
-case class EnrichedSensor(id: Int, total: Int)
-
-object Fusion {
+object InvocationFusion {
   def main(args: Array[String]) {
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     // JVM Warmup
@@ -18,26 +15,28 @@ object Fusion {
   }
 
   def run(env: StreamExecutionEnvironment) = {
-    val stream = env.addSource(new SourceFunction[SensorData]() {
-       override def run(ctx: SourceContext[SensorData]) = {
+    val stream = env.addSource(new SourceFunction[Int]() {
+       override def run(ctx: SourceContext[Int]) = {
          var counter: Long = 0
-         val r = new scala.util.Random
-         val limit: Long = 5000000
+         val limit: Long = 10000000
          while (counter < limit) {
-           val id = 1 + r.nextInt(( 10 - 1) + 1)
-           val vec = (1 to 20).map(_ => 1 + r.nextInt(100)).toVector
-           ctx.collect(new SensorData(id, vec))
+           ctx.collect(10)
            counter += 1
          }
        }
        override def cancel(): Unit =  {}
-    }).map(sensor => {
-        val total = sensor.vec.map(_ + 5).filter(_ > 50).sum
-        new EnrichedSensor(sensor.id, total)
-    }).setParallelism(1)
-      .addSink(new ThroughputSink[EnrichedSensor](100000)).setParallelism(1)
+    })
+      .map(num => {
+        var c = 0
+        for (i <- 0 to 49) {
+          c += 1
+        }
+        c
+      }).setParallelism(1)
+      .addSink(new ThroughputSink[Int](100000)).setParallelism(1)
 
     println(env.getExecutionPlan)
     val res = env.execute()
+    println("The job took " + res.getNetRuntime() + " to execute");
   }
 }
