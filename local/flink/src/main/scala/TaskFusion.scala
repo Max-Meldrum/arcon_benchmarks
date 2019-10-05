@@ -16,18 +16,7 @@ object TaskFusion {
   }
 
   def run(env: StreamExecutionEnvironment) = {
-    val stream = env.addSource(new SourceFunction[Int]() {
-       override def run(ctx: SourceContext[Int]) = {
-         var counter: Long = 0
-         val r = new scala.util.Random
-         val limit: Long = 10000000
-         while (counter < limit) {
-           ctx.collect(10)
-           counter += 1
-         }
-       }
-       override def cancel(): Unit =  {}
-    })
+    val stream = env.addSource(Sources.fusionSource())
       .map(num => num + 1).setParallelism(1)
       .map(num => num + 1).setParallelism(1)
       .map(num => num + 1).setParallelism(1)
@@ -85,6 +74,6 @@ object TaskFusion {
     println(env.getExecutionPlan)
     val res = env.execute()
     println("The job took " + res.getNetRuntime() + " to execute");
-
   }
+
 }

@@ -15,17 +15,7 @@ object InvocationFusion {
   }
 
   def run(env: StreamExecutionEnvironment) = {
-    val stream = env.addSource(new SourceFunction[Int]() {
-       override def run(ctx: SourceContext[Int]) = {
-         var counter: Long = 0
-         val limit: Long = 10000000
-         while (counter < limit) {
-           ctx.collect(10)
-           counter += 1
-         }
-       }
-       override def cancel(): Unit =  {}
-    })
+    val stream = env.addSource(Sources.fusionSource())
       .map(num => {
         var c = 0
         for (i <- 0 to 49) {

@@ -15,18 +15,7 @@ object InstructionFusion {
   }
 
   def run(env: StreamExecutionEnvironment) = {
-    val stream = env.addSource(new SourceFunction[Int]() {
-       override def run(ctx: SourceContext[Int]) = {
-         var counter: Long = 0
-         val r = new scala.util.Random
-         val limit: Long = 10000000
-         while (counter < limit) {
-           ctx.collect(10)
-           counter += 1
-         }
-       }
-       override def cancel(): Unit =  {}
-    })
+    val stream = env.addSource(Sources.fusionSource())
       .map(num => num + 50).setParallelism(1)
       .addSink(new ThroughputSink[Int](100000)).setParallelism(1)
 
