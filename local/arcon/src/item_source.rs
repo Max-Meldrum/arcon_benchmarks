@@ -4,25 +4,23 @@ use arcon::prelude::*;
 pub struct ItemSource {
     ctx: ComponentContext<Self>,
     channel_strategy: Box<dyn ChannelStrategy<crate::Item>>,
+    items: Option<Vec<crate::Item>>,
 }
 
 impl ItemSource {
-    pub fn new(channel_strategy: Box<dyn ChannelStrategy<crate::Item>>) -> Self {
+    pub fn new(items: Vec<crate::Item>, channel_strategy: Box<dyn ChannelStrategy<crate::Item>>) -> Self {
         ItemSource {
             ctx: ComponentContext::new(),
             channel_strategy,
+            items: Some(items),
         }
     }
 
     fn send_elements(&mut self) {
-        loop {
-            let (id, price) = crate::item_row();
-            let item = crate::Item {
-                id: id,
-                price: price,
-            };
+        let items = self.items.take().expect("no");
+        for item in items {
             let _ = self.channel_strategy.output(
-                ArconMessage::element(item, None, "source".to_string()),
+                ArconMessage::element(item, None, 0.into()),
                 &self.ctx.system(),
             );
         }

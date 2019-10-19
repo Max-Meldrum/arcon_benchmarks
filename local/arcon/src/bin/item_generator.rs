@@ -14,6 +14,6 @@ fn main() {
             panic!("Expected 1 arg, that is number of items");
         }
     }
-    let items: Vec<(u64, u64)> = (0..total_items).map(|_| arcon_local::item_row()).collect();
+    let items = arcon_local::skewed_items(total_items);
     arcon_local::generate_data_file(items, "data");
 }

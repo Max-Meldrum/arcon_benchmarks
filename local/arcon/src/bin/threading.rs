@@ -9,7 +9,7 @@ use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
 use std::sync::Arc;
 
-// Source -> (RoundRobin) Filter -> (Shuffle) Map -> ThroughputSink
+// Source -> (KeyBy) Map -> ThroughputSink
 // scenario 1: deploy using dedicated threads
 // scenario 2: deploy using normal workstealing
 fn main() {
@@ -129,8 +129,8 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
             Box::new(Forward::new(sink_channel.clone()));
         let module = Arc::new(Module::new(code.clone()).unwrap());
         let node = Node::<Item, Item>::new(
-            "mapper".to_string(),
-            vec!["filter".to_string()],
+            1.into(),
+            vec![0.into()],
             channel_strategy,
             Box::new(Map::<Item, Item>::new(module)),
         );
@@ -151,62 +151,21 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
         map_comps.push(map_node);
     }
 
-    // Filters
-
-    let mut channels: Vec<Channel<Item>> = Vec::new();
-
-    for map_comp in map_comps {
-        let actor_ref: ActorRef<ArconMessage<Item>> = map_comp.actor_ref();
-        let channel = Channel::Local(actor_ref);
-        channels.push(channel);
-    }
-
-    let code = String::from("|id: u64, price: u64| id > u64(2)");
-    let mut filter_comps: Vec<Arc<arcon::prelude::Component<Node<Item, Item>>>> = Vec::new();
-
-    for _i in 0..parallelism {
-        let channel_strategy: Box<dyn ChannelStrategy<Item>> =
-            Box::new(Shuffle::new(channels.clone()));
-        let module = Arc::new(Module::new(code.clone()).unwrap());
-        let node = Node::<Item, Item>::new(
-            "filter".to_string(),
-            vec!["source".to_string()],
-            channel_strategy,
-            Box::new(Filter::<Item>::new(module)),
-        );
-
-        let filter = if dedicated {
-            if pinned {
-                assert!(core_counter < core_ids.len());
-                core_counter += 1;
-                system.create_dedicated_pinned(move || node, core_ids[core_counter-1])
-            } else {
-                system.create_dedicated(move || node)
-            }
-        } else {
-            system.create(move || node)
-        };
-
-        system.start(&filter);
-        filter_comps.push(filter);
-    }
-
-    std::thread::sleep(std::time::Duration::from_secs(1));
-
     // Source
 
-    let mut filter_channels: Vec<Channel<Item>> = Vec::new();
+    let mut map_channels: Vec<Channel<Item>> = Vec::new();
 
-    for filter_comp in filter_comps {
-        let actor_ref: ActorRef<ArconMessage<Item>> = filter_comp.actor_ref();
+    for map_comp in &map_comps {
+        let actor_ref: ActorRef<ArconMessage<Item>> = map_comp.actor_ref();
         let channel = Channel::Local(actor_ref);
-        filter_channels.push(channel);
+        map_channels.push(channel);
     }
 
     let channel_strategy: Box<dyn ChannelStrategy<Item>> =
-        Box::new(RoundRobin::new(filter_channels.clone()));
+        Box::new(KeyBy::with_default_hasher(map_comps.len() as u32, map_channels.clone()));
 
-    let source = system.create_dedicated(move || ItemSource::new(channel_strategy));
+    let items = arcon_local::read_data("data");
+    let source = system.create_dedicated(move || ItemSource::new(items, channel_strategy));
     system.start(&source);
 
     std::thread::sleep(std::time::Duration::from_secs(1));
