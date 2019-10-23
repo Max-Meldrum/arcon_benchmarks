@@ -6,39 +6,31 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext
 
-case class Item(id: Long, price: Long)
+case class Item(id: Int, price: Long)
 
 object Threading {
   def main(args: Array[String]) {
-    if (args.length == 1) {
-      val parallelism  = args(0).toInt
-      val env = StreamExecutionEnvironment.createLocalEnvironment()
-      env.disableOperatorChaining()
-      run(env, parallelism)
-    } else {
-      println("Expected 1 arg: parallelism of filters/mappers")
-    }
+    val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
+    env.setMaxParallelism(2) // Set Key-groups to 2
+    val par = env.getParallelism
+    val max = env.getMaxParallelism
+    println("JOB PAR: " + par)
+    println("MAX PAR: " + max)
+    val items = read_data(args(0))
+    // JVM Warmup..
+    1 to 5 foreach { _ => run(env, items) }
   }
 
-  def run(env: StreamExecutionEnvironment, parallelism: Int) = {
-    val stream = env.addSource(new SourceFunction[Item]() {
-       override def run(ctx: SourceContext[Item]) = {
-         while (true) {
-           val r = new scala.util.Random
-           val id = 1 + r.nextInt(( 10 - 1) + 1)
-           val price = 1 + r.nextInt(( 100 - 1) + 1)
-           ctx.collect(Item(id, price))
-         }
-       }
-       override def cancel(): Unit =  {}
-    }).rebalance
-      .filter(obj => obj.id > 2).setParallelism(parallelism)
-      .shuffle
-      .map(obj => new Item(obj.id, obj.price + 5)).setParallelism(parallelism)
+  def run(env: StreamExecutionEnvironment, items: List[Item]) = {
+    val stream: DataStream[Item] = env.fromCollection(items)
+
+    stream.keyBy(_.id)
+      .map(item => new Item(item.id, item.price + 5)).setParallelism(2)
       .addSink(new ThroughputSink[Item](100000)).setParallelism(1)
 
     println(env.getExecutionPlan)
     val res = env.execute()
+    println("The job took " + res.getNetRuntime() + " to execute");
   }
 
   def read_data(path: String): List[Item] = {

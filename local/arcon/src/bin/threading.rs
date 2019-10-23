@@ -8,6 +8,8 @@ use arcon_local::throughput_sink::ThroughputSink;
 use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
 use std::sync::Arc;
+use std::hash::{Hasher, BuildHasherDefault};
+use fasthash::{murmur3::Hasher32, FastHasher};
 
 // Source -> (KeyBy) Map -> ThroughputSink
 // scenario 1: deploy using dedicated threads
@@ -121,7 +123,7 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
     let sink_channel = Channel::Local(sink_ref);
 
     // Mappers
-    let code = String::from("|id: u64, price: u64| {id, price + u64(5)}");
+    let code = String::from("|id: i32, price: u64| {id, price + u64(5)}");
     let mut map_comps: Vec<Arc<arcon::prelude::Component<Node<Item, Item>>>> = Vec::new();
 
     for _i in 0..parallelism {
@@ -161,8 +163,7 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
         map_channels.push(channel);
     }
 
-    let channel_strategy: Box<dyn ChannelStrategy<Item>> =
-        Box::new(KeyBy::with_default_hasher(map_comps.len() as u32, map_channels.clone()));
+    let channel_strategy: Box<dyn ChannelStrategy<Item>> = Box::new(KeyBy::with_hasher::<Hasher32>(map_comps.len() as u32, map_channels.clone()));
 
     let items = arcon_local::read_data("data");
     let source = system.create_dedicated(move || ItemSource::new(items, channel_strategy));
