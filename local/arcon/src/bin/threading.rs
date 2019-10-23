@@ -4,16 +4,15 @@ extern crate clap;
 
 use arcon_local::arcon::prelude::*;
 use arcon_local::item_source::ItemSource;
+use arcon_local::throughput_sink::Run;
 use arcon_local::throughput_sink::ThroughputSink;
 use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
-use std::sync::Arc;
-use std::hash::{Hasher, BuildHasherDefault};
 use fasthash::{murmur3::Hasher32, FastHasher};
+use std::hash::{BuildHasherDefault, Hasher};
+use std::sync::Arc;
 
 // Source -> (KeyBy) Map -> ThroughputSink
-// scenario 1: deploy using dedicated threads
-// scenario 2: deploy using normal workstealing
 fn main() {
     let task_parallelism_arg = Arg::with_name("p")
         .required(false)
@@ -49,7 +48,8 @@ fn main() {
                 .help("dedicated mode")
                 .long("dedicated")
                 .short("d"),
-        ).arg(
+        )
+        .arg(
             Arg::with_name("p")
                 .help("dedicated-pinned mode")
                 .long("dedicated-pinned")
@@ -103,6 +103,7 @@ fn fetch_args() -> Vec<String> {
 fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: bool, pinned: bool) {
     let core_ids = arcon_local::arcon::prelude::get_core_ids().unwrap();
     let mut core_counter: usize = 0;
+    let timeout = std::time::Duration::from_millis(500);
 
     let mut cfg = KompactConfig::default();
     // one dedicated thread for the source
@@ -115,9 +116,14 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
 
     let system = cfg.build().expect("KompactSystem");
 
-    let sink = system.create(move || ThroughputSink::<Item>::new(log_freq));
-    system.start(&sink);
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    let expected_msgs: u64 = 10000000;
+    let sink = system.create(move || ThroughputSink::<Item>::new(log_freq, expected_msgs));
+    let sink_port = sink.on_definition(|cd| cd.sink_port.share());
+
+    system
+        .start_notify(&sink)
+        .wait_timeout(timeout)
+        .expect("sink never started!");
 
     let sink_ref: ActorRef<ArconMessage<Item>> = sink.actor_ref();
     let sink_channel = Channel::Local(sink_ref);
@@ -141,15 +147,18 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
             if pinned {
                 assert!(core_counter < core_ids.len());
                 core_counter += 1;
-                system.create_dedicated_pinned(move || node, core_ids[core_counter-1])
+                system.create_dedicated_pinned(move || node, core_ids[core_counter - 1])
             } else {
                 system.create_dedicated(move || node)
             }
         } else {
             system.create(move || node)
         };
-        system.start(&map_node);
-        std::thread::sleep(std::time::Duration::from_secs(1));
+
+        system
+            .start_notify(&map_node)
+            .wait_timeout(timeout)
+            .expect("map_node never started!");
         map_comps.push(map_node);
     }
 
@@ -163,15 +172,26 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
         map_channels.push(channel);
     }
 
-    let channel_strategy: Box<dyn ChannelStrategy<Item>> = Box::new(KeyBy::with_hasher::<Hasher32>(map_comps.len() as u32, map_channels.clone()));
+    let channel_strategy: Box<dyn ChannelStrategy<Item>> = Box::new(
+        KeyBy::with_hasher::<Hasher32>(map_comps.len() as u32, map_channels.clone()),
+    );
 
     let items = arcon_local::read_data("data");
     let source = system.create_dedicated(move || ItemSource::new(items, channel_strategy));
-    system.start(&source);
 
-    std::thread::sleep(std::time::Duration::from_secs(1));
+    system
+        .start_notify(&source)
+        .wait_timeout(timeout)
+        .expect("source never started!");
+
+    // Set up start time at Sink
+    let (promise, future) = kpromise();
+    system.trigger_r(Run::new(promise), &sink_port);
+    // Tell Source to start sending msgs
     let source_ref: ActorRef<String> = source.actor_ref();
     source_ref.tell(String::from("start"));
 
-    system.await_termination();
+    // wait for sink to return completion msg.
+    let res = future.wait();
+    println!("Execution took {:?}", res);
 }

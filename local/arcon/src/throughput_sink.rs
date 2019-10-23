@@ -1,5 +1,27 @@
 use arcon::prelude::*;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+#[derive(Debug)]
+pub struct Run {
+    promise: KPromise<Duration>,
+}
+impl Run {
+    pub fn new(promise: KPromise<Duration>) -> Run {
+        Run { promise }
+    }
+}
+
+impl Clone for Run {
+    fn clone(&self) -> Self {
+        unimplemented!("Shouldn't be invoked in this experiment!");
+    }
+}
+
+pub struct SinkPort;
+impl Port for SinkPort {
+    type Indication = ();
+    type Request = Run;
+}
 
 #[derive(ComponentDefinition)]
 pub struct ThroughputSink<A>
@@ -7,6 +29,10 @@ where
     A: ArconType + 'static,
 {
     ctx: ComponentContext<Self>,
+    pub sink_port: ProvidedPort<SinkPort, Self>,
+    done: Option<KPromise<Duration>>,
+    start: std::time::Instant,
+    expected_msgs: u64,
     log_freq: u64,
     last_total_recv: u64,
     last_time: u64,
@@ -20,9 +46,13 @@ impl<A> ThroughputSink<A>
 where
     A: ArconType + 'static,
 {
-    pub fn new(log_freq: u64) -> Self {
+    pub fn new(log_freq: u64, expected_msgs: u64) -> Self {
         ThroughputSink {
             ctx: ComponentContext::new(),
+            sink_port: ProvidedPort::new(),
+            done: None,
+            start: std::time::Instant::now(),
+            expected_msgs,
             log_freq,
             last_total_recv: 0,
             last_time: 0,
@@ -62,6 +92,11 @@ where
                 self.total_recv
             );
         }
+        if self.total_recv == self.expected_msgs {
+            let time = self.start.elapsed();
+            let promise = self.done.take().expect("No promise to reply to?");
+            promise.fulfill(time).expect("Promise was dropped");
+        }
     }
 
     fn get_current_time(&self) -> u64 {
@@ -93,5 +128,15 @@ where
 
     fn receive_network(&mut self, _msg: NetMessage) {
         panic!("only local exec");
+    }
+}
+
+impl<A> Provide<SinkPort> for ThroughputSink<A>
+where
+    A: ArconType + 'static,
+{
+    fn handle(&mut self, event: Run) -> () {
+        self.done = Some(event.promise);
+        self.start = std::time::Instant::now();
     }
 }

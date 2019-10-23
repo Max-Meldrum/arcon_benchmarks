@@ -6,10 +6,10 @@ extern crate serde;
 
 pub use arcon::data::*;
 pub use arcon::macros::*;
+use fasthash::{murmur3::Hasher32, FastHasher};
 use rand::Rng;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use fasthash::{murmur3::Hasher32, FastHasher};
 
 pub mod item_source;
 pub mod throughput_sink;
@@ -38,7 +38,9 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         items.push(Item { id, price });
         counter += 1;
 
-        if counter == total_items { break;}
+        if counter == total_items {
+            break;
+        }
 
         let mut h = Hasher32::new();
         id.hash(&mut h);
@@ -58,9 +60,11 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
                 if bucket == 1 {
                     items.push(Item { id, price });
                     map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
-                    skew_counter +=1;
+                    skew_counter += 1;
                     counter += 1;
-                    if counter == total_items { break; }
+                    if counter == total_items {
+                        break;
+                    }
                 }
             }
         }

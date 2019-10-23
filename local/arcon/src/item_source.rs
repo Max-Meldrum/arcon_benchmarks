@@ -8,7 +8,10 @@ pub struct ItemSource {
 }
 
 impl ItemSource {
-    pub fn new(items: Vec<crate::Item>, channel_strategy: Box<dyn ChannelStrategy<crate::Item>>) -> Self {
+    pub fn new(
+        items: Vec<crate::Item>,
+        channel_strategy: Box<dyn ChannelStrategy<crate::Item>>,
+    ) -> Self {
         ItemSource {
             ctx: ComponentContext::new(),
             channel_strategy,
