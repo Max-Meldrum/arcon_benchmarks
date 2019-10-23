@@ -18,7 +18,7 @@ fn main() {
         .required(false)
         .default_value("1")
         .takes_value(true)
-        .long("How many filters/mappers to spawn")
+        .long("How many mappers to spawn")
         .short("p")
         .help("how many tasks to spawn");
 
