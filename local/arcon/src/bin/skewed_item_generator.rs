@@ -18,5 +18,5 @@ fn main() {
         }
     }
     let items = arcon_local::skewed_items(total_items, parallelism);
-    arcon_local::generate_data_file(items, "data");
+    arcon_local::generate_data_file(items, "skewed_data");
 }

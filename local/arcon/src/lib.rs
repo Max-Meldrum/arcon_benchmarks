@@ -77,6 +77,38 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
     items
 }
 
+pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
+    let mut items: Vec<Item> = Vec::new();
+    let mut map: HashMap<u32, u64> = HashMap::with_capacity(4);
+    let mut max: i32 = 0;
+    let mut rng = rand::thread_rng();
+    let mut counter: u64 = 0;
+
+    while counter < total_items {
+        let id: i32 = rng.gen_range(1, 51);
+        if id > max {
+            max = id;
+        }
+
+        let price = rng.gen_range(1, 100);
+        items.push(Item { id, price });
+        counter += 1;
+
+        let mut h = Hasher32::new();
+        id.hash(&mut h);
+        let hash = h.finish();
+        let hash_id = (hash % parallelism) as u32;
+        map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
+    }
+
+    println!("MAX {}", max);
+
+    for (id, count) in map.iter() {
+        println!("Partition ID {} with count {}", id, count);
+    }
+    items
+}
+
 pub fn generate_data_file(items: Vec<Item>, file: &str) {
     use std::fs::OpenOptions;
     use std::io::Write;
