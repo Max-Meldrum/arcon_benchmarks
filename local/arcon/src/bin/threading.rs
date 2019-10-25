@@ -8,8 +8,7 @@ use arcon_local::throughput_sink::Run;
 use arcon_local::throughput_sink::ThroughputSink;
 use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
-use fasthash::{murmur3::Hasher32, FastHasher};
-use std::hash::{BuildHasherDefault, Hasher};
+use fasthash::murmur3::Hasher32;
 use std::sync::Arc;
 
 // Source -> (KeyBy) Map -> ThroughputSink
@@ -128,19 +127,21 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
     let sink_ref: ActorRef<ArconMessage<Item>> = sink.actor_ref();
     let sink_channel = Channel::Local(sink_ref);
 
+    fn map_fn(item: &Item) -> Item {
+        Item { id: item.id, price: item.price + 5 }
+    }
+
     // Mappers
-    let code = String::from("|id: i32, price: u64| {id, price + u64(5)}");
     let mut map_comps: Vec<Arc<arcon::prelude::Component<Node<Item, Item>>>> = Vec::new();
 
     for _i in 0..parallelism {
         let channel_strategy: Box<dyn ChannelStrategy<Item>> =
             Box::new(Forward::new(sink_channel.clone()));
-        let module = Arc::new(Module::new(code.clone()).unwrap());
         let node = Node::<Item, Item>::new(
             1.into(),
             vec![0.into()],
             channel_strategy,
-            Box::new(Map::<Item, Item>::new(module)),
+            Box::new(Map::new(&map_fn)),
         );
 
         let map_node = if dedicated {
