@@ -29,6 +29,14 @@ fn main() {
         .short("k")
         .help("kompact cfg throughput");
 
+    let kompact_system_threads_arg = Arg::with_name("t")
+        .required(false)
+        .default_value("num_cpus::get()")
+        .takes_value(true)
+        .long("KompactSystem threads")
+        .short("t")
+        .help("KompactSystem threads");
+
     let log_frequency_arg = Arg::with_name("l")
         .required(false)
         .default_value("100000")
@@ -60,6 +68,7 @@ fn main() {
                 .arg(&task_parallelism_arg)
                 .arg(&kompact_throughput_arg)
                 .arg(&log_frequency_arg)
+                .arg(&kompact_system_threads_arg)
                 .about("Run benchmark"),
         )
         .get_matches_from(fetch_args());
@@ -87,7 +96,20 @@ fn main() {
                 .parse::<u64>()
                 .unwrap();
 
-            exec(parallelism, log_freq, kompact_throughput, dedicated, pinned);
+            let kompact_system_threads = arg_matches
+                .value_of("t")
+                .expect("Should not happen as there is a default")
+                .parse::<usize>()
+                .unwrap_or(num_cpus::get());
+
+            exec(
+                parallelism,
+                log_freq,
+                kompact_throughput,
+                kompact_system_threads,
+                dedicated,
+                pinned,
+            );
         }
         _ => {
             panic!("Wrong arg");
@@ -99,14 +121,21 @@ fn fetch_args() -> Vec<String> {
     std::env::args().collect()
 }
 
-fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: bool, pinned: bool) {
+fn exec(
+    parallelism: u64,
+    log_freq: u64,
+    kompact_throughput: u64,
+    kompact_system_threads: usize,
+    dedicated: bool,
+    pinned: bool,
+) {
     let core_ids = arcon_local::arcon::prelude::get_core_ids().unwrap();
     let mut core_counter: usize = 0;
     let timeout = std::time::Duration::from_millis(500);
 
     let mut cfg = KompactConfig::default();
     // one dedicated thread for the source
-    let threads: usize = num_cpus::get() - 1;
+    let threads = kompact_system_threads - 1;
     cfg.threads(threads);
     if !dedicated {
         cfg.throughput(kompact_throughput as usize);
