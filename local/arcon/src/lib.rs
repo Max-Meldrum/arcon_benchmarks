@@ -6,7 +6,6 @@ extern crate serde;
 
 pub use arcon::data::*;
 pub use arcon::macros::*;
-use fasthash::{murmur3::Hasher32, FastHasher};
 use rand::Rng;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
@@ -19,6 +18,62 @@ pub mod throughput_sink;
 pub struct Item {
     pub id: i32,
     pub price: u64,
+}
+
+pub struct FlinkMurmurHash(i32);
+
+impl Hasher for FlinkMurmurHash {
+    #[inline]
+    fn finish(&self) -> u64 {
+        flink_murmur_hash(self.0 as u32) as u64
+    }
+
+    #[inline]
+    fn write(&mut self, bytes: &[u8]) {
+        let FlinkMurmurHash(mut hash) = *self;
+        for byte in bytes.iter() {
+            hash = hash ^ (*byte as i32);
+        }
+
+        *self = FlinkMurmurHash(hash);
+    }
+}
+
+impl Default for FlinkMurmurHash {
+    #[inline]
+    fn default() -> FlinkMurmurHash {
+        FlinkMurmurHash(0)
+    }
+}
+
+pub fn flink_murmur_hash(code: u32) -> i32 {
+    let mut state = code;
+
+    const C1: u32 = 0xcc9e2d51;
+    const C2: u32 = 0x1b873593;
+    const N: u32 = 0xe6546b64;
+    const M: u32 = 5;
+
+    state = state.wrapping_mul(C1).rotate_left(15).wrapping_mul(C2);
+    state = state.rotate_left(13);
+    state = (state.wrapping_mul(M)).wrapping_add(N);
+
+    state ^= 4;
+
+    state ^= state.wrapping_shr(16);
+    state = state.wrapping_mul(0x85ebca6b);
+    state ^= state.wrapping_shr(13);
+    state = state.wrapping_mul(0xc2b2ae35);
+    state ^= state.wrapping_shr(16);
+
+    let state: i32 = state as i32;
+    if state >= 0 {
+        return state;
+    } else if state != std::i32::MIN {
+        return -state;
+    } else {
+        return 0;
+    }
 }
 
 pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
@@ -36,28 +91,29 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
 
         let price = rng.gen_range(1, 100);
         items.push(Item { id, price });
+
+        let mut h = FlinkMurmurHash::default();
+        id.hash(&mut h);
+        let hash = h.finish();
+        let hash_id = (hash % parallelism) as u32;
+        map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
+
         counter += 1;
 
         if counter == total_items {
             break;
         }
 
-        let mut h = Hasher32::new();
-        id.hash(&mut h);
-        let hash = h.finish();
-        let hash_id = (hash % parallelism) as u32;
-        map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
-
         if hash_id == 1 {
             let mut skew_counter: u64 = 0;
             while skew_counter < 2 {
                 let price = rng.gen_range(1, 100);
                 let id: i32 = rng.gen_range(1, 51);
-                let mut h = Hasher32::new();
+                let mut h = FlinkMurmurHash::default();
                 id.hash(&mut h);
                 let hash = h.finish();
-                let bucket = (hash % parallelism) as u32;
-                if bucket == 1 {
+                let hash_id = (hash % parallelism) as u32;
+                if hash_id == 1 {
                     items.push(Item { id, price });
                     map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
                     skew_counter += 1;
@@ -94,7 +150,7 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         items.push(Item { id, price });
         counter += 1;
 
-        let mut h = Hasher32::new();
+        let mut h = FlinkMurmurHash::default();
         id.hash(&mut h);
         let hash = h.finish();
         let hash_id = (hash % parallelism) as u32;

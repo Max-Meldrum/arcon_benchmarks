@@ -6,9 +6,9 @@ use arcon_local::arcon::prelude::*;
 use arcon_local::item_source::ItemSource;
 use arcon_local::throughput_sink::Run;
 use arcon_local::throughput_sink::ThroughputSink;
+use arcon_local::FlinkMurmurHash;
 use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
-use fasthash::murmur3::Hasher32;
 use std::sync::Arc;
 
 // Source -> (KeyBy) Map -> ThroughputSink
@@ -128,7 +128,10 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
     let sink_channel = Channel::Local(sink_ref);
 
     fn map_fn(item: &Item) -> Item {
-        Item { id: item.id, price: item.price + 5 }
+        Item {
+            id: item.id,
+            price: item.price + 5,
+        }
     }
 
     // Mappers
@@ -173,9 +176,11 @@ fn exec(parallelism: u64, log_freq: u64, kompact_throughput: u64, dedicated: boo
         map_channels.push(channel);
     }
 
-    let channel_strategy: Box<dyn ChannelStrategy<Item>> = Box::new(
-        KeyBy::with_hasher::<Hasher32>(map_comps.len() as u32, map_channels.clone()),
-    );
+    let channel_strategy: Box<dyn ChannelStrategy<Item>> =
+        Box::new(KeyBy::with_hasher::<FlinkMurmurHash>(
+            map_comps.len() as u32,
+            map_channels.clone(),
+        ));
 
     let items = arcon_local::read_data("data");
     let source = system.create_dedicated(move || ItemSource::new(items, channel_strategy));
