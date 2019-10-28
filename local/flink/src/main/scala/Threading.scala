@@ -10,22 +10,24 @@ case class Item(id: Int, price: Long)
 
 object Threading {
   def main(args: Array[String]) {
+    val parallelism = args(0).toInt
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
-    env.setMaxParallelism(2) // Set Key-groups to 2
+    env.setMaxParallelism(parallelism) // Sets key-groups
+    env.setParallelism(parallelism)
     val par = env.getParallelism
     val max = env.getMaxParallelism
     println("JOB PAR: " + par)
     println("MAX PAR: " + max)
-    val items = read_data(args(0))
+    val items = read_data(args(1))
     // JVM Warmup..
-    1 to 5 foreach { _ => run(env, items) }
+    1 to 5 foreach { _ => run(env, items, parallelism) }
   }
 
-  def run(env: StreamExecutionEnvironment, items: List[Item]) = {
+  def run(env: StreamExecutionEnvironment, items: List[Item], parallelism: Int) = {
     val stream: DataStream[Item] = env.fromCollection(items)
 
     stream.keyBy(_.id)
-      .map(item => new Item(item.id, item.price + 5)).setParallelism(2)
+      .map(item => new Item(item.id, item.price + 5)).setParallelism(parallelism)
       .addSink(new ThroughputSink[Item](100000)).setParallelism(1)
 
     println(env.getExecutionPlan)

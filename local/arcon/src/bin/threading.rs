@@ -23,7 +23,7 @@ fn main() {
 
     let kompact_throughput_arg = Arg::with_name("k")
         .required(false)
-        .default_value("100000")
+        .default_value("10000")
         .takes_value(true)
         .long("Kompact cfg throughput")
         .short("k")
