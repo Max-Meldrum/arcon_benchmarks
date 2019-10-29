@@ -3,7 +3,7 @@ extern crate arcon_local;
 extern crate clap;
 
 use arcon_local::arcon::prelude::*;
-use arcon_local::item_source::ItemSource;
+use arcon_local::file_item_source::FileItemSource;
 use arcon_local::throughput_sink::Run;
 use arcon_local::throughput_sink::ThroughputSink;
 use arcon_local::EnrichedItem;
@@ -46,6 +46,14 @@ fn main() {
         .short("l")
         .help("throughput log freq");
 
+    let scaling_factor_arg = Arg::with_name("s")
+        .required(false)
+        .default_value("1")
+        .takes_value(true)
+        .long("workload scaling")
+        .short("s")
+        .help("workload scaling");
+
     let matches = App::new("Arcon Threading benchmark")
         .setting(AppSettings::ColoredHelp)
         .author(crate_authors!("\n"))
@@ -70,6 +78,7 @@ fn main() {
                 .arg(&kompact_throughput_arg)
                 .arg(&log_frequency_arg)
                 .arg(&kompact_system_threads_arg)
+                .arg(&scaling_factor_arg)
                 .about("Run benchmark"),
         )
         .get_matches_from(fetch_args());
@@ -103,7 +112,14 @@ fn main() {
                 .parse::<usize>()
                 .unwrap_or(num_cpus::get());
 
+            let scaling_factor = arg_matches
+                .value_of("s")
+                .expect("Should not happen as there is a default")
+                .parse::<u64>()
+                .unwrap();
+
             exec(
+                scaling_factor,
                 parallelism,
                 log_freq,
                 kompact_throughput,
@@ -123,6 +139,7 @@ fn fetch_args() -> Vec<String> {
 }
 
 fn exec(
+    scaling_factor: u64,
     parallelism: u64,
     log_freq: u64,
     kompact_throughput: u64,
@@ -158,11 +175,34 @@ fn exec(
     let sink_channel = Channel::Local(sink_ref);
 
     fn map_fn(item: Item) -> EnrichedItem {
-        let mut sales = item.sales;
-        let total_price = sales.drain(..).sum();
+        // credit: https://github.com/eliovir/rust-examples/blob/master/fibonacci.rs
+        #[inline(always)]
+        fn fibonacci(n: u64) -> u64 {
+            if n == 0 {
+                panic!("zero is not a right argument to fibonacci()!");
+            } else if n == 1 {
+                return 1;
+            }
+
+            let mut sum = 0;
+            let mut last = 0;
+            let mut curr = 1;
+            for _i in 1..n {
+                sum = last + curr;
+                last = curr;
+                curr = sum;
+            }
+            sum
+        }
+
+        let mut sum: u64 = 0;
+        for _i in 0..item.scaling_factor {
+            sum += fibonacci(item.number)
+        }
+
         EnrichedItem {
             id: item.id,
-            total_price,
+            total: sum,
         }
     }
 
@@ -203,7 +243,8 @@ fn exec(
     let mut map_channels: Vec<Channel<Item>> = Vec::new();
 
     for map_comp in &map_comps {
-        let actor_ref: ActorRefStrong<ArconMessage<Item>> = map_comp.actor_ref().hold().expect("no");
+        let actor_ref: ActorRefStrong<ArconMessage<Item>> =
+            map_comp.actor_ref().hold().expect("no");
         let channel = Channel::Local(actor_ref);
         map_channels.push(channel);
     }
@@ -214,8 +255,9 @@ fn exec(
             map_channels.clone(),
         ));
 
-    let items = arcon_local::read_data("data");
-    let source = system.create_dedicated(move || ItemSource::new(items, channel_strategy));
+    let source = system.create_dedicated(move || {
+        FileItemSource::new("data".to_string(), scaling_factor, channel_strategy)
+    });
 
     system
         .start_notify(&source)

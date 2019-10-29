@@ -66,7 +66,8 @@ where
     #[inline(always)]
     fn handle_event(&mut self, _event: &ArconEvent<A>) {
         if self.total_recv == 0 {
-            info!(self.ctx.log(),
+            info!(
+                self.ctx.log(),
                 "ThroughputLogging {}, {}",
                 self.get_current_time(),
                 self.total_recv
@@ -84,10 +85,14 @@ where
                 self.throughput_sum += throughput as f32;
                 self.avg_throughput = self.throughput_sum / self.throughput_counter as f32;
             }
-            info!(self.ctx.log(), "Throughput {}, Average {}", throughput, self.avg_throughput);
+            info!(
+                self.ctx.log(),
+                "Throughput {}, Average {}", throughput, self.avg_throughput
+            );
             self.last_time = current_time;
             self.last_total_recv = self.total_recv;
-            info!(self.ctx.log(),
+            info!(
+                self.ctx.log(),
                 "ThroughputLogging {}, {}",
                 self.get_current_time(),
                 self.total_recv
