@@ -6,6 +6,7 @@ use arcon_local::arcon::prelude::*;
 use arcon_local::item_source::ItemSource;
 use arcon_local::throughput_sink::Run;
 use arcon_local::throughput_sink::ThroughputSink;
+use arcon_local::EnrichedItem;
 use arcon_local::FlinkMurmurHash;
 use arcon_local::Item;
 use clap::{App, AppSettings, Arg, SubCommand};
@@ -145,7 +146,7 @@ fn exec(
     let system = cfg.build().expect("KompactSystem");
 
     let expected_msgs: u64 = 10000000;
-    let sink = system.create(move || ThroughputSink::<Item>::new(log_freq, expected_msgs));
+    let sink = system.create(move || ThroughputSink::<EnrichedItem>::new(log_freq, expected_msgs));
     let sink_port = sink.on_definition(|cd| cd.sink_port.share());
 
     system
@@ -153,23 +154,25 @@ fn exec(
         .wait_timeout(timeout)
         .expect("sink never started!");
 
-    let sink_ref: ActorRefStrong<ArconMessage<Item>> = sink.actor_ref().hold().expect("no");
+    let sink_ref: ActorRefStrong<ArconMessage<EnrichedItem>> = sink.actor_ref().hold().expect("no");
     let sink_channel = Channel::Local(sink_ref);
 
-    fn map_fn(item: &Item) -> Item {
-        Item {
+    fn map_fn(item: Item) -> EnrichedItem {
+        let mut sales = item.sales;
+        let total_price = sales.drain(..).sum();
+        EnrichedItem {
             id: item.id,
-            price: item.price + 5,
+            total_price,
         }
     }
 
     // Mappers
-    let mut map_comps: Vec<Arc<arcon::prelude::Component<Node<Item, Item>>>> = Vec::new();
+    let mut map_comps: Vec<Arc<arcon::prelude::Component<Node<Item, EnrichedItem>>>> = Vec::new();
 
     for _i in 0..parallelism {
-        let channel_strategy: Box<dyn ChannelStrategy<Item>> =
+        let channel_strategy: Box<dyn ChannelStrategy<EnrichedItem>> =
             Box::new(Forward::new(sink_channel.clone()));
-        let node = Node::<Item, Item>::new(
+        let node = Node::<Item, EnrichedItem>::new(
             1.into(),
             vec![0.into()],
             channel_strategy,

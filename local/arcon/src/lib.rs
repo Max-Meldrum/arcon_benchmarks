@@ -17,7 +17,13 @@ pub mod throughput_sink;
 #[arcon]
 pub struct Item {
     pub id: i32,
-    pub price: u64,
+    pub sales: Vec<u64>,
+}
+
+#[arcon]
+pub struct EnrichedItem {
+    pub id: i32,
+    pub total_price: u64,
 }
 
 pub struct FlinkMurmurHash(i32);
@@ -76,6 +82,12 @@ pub fn flink_murmur_hash(code: u32) -> i32 {
     }
 }
 
+pub fn get_sales() -> Vec<u64> {
+    let mut rng = rand::thread_rng();
+    let mut sales = || (0..15).map(|_| rng.gen_range(1, 100)).collect();
+    sales()
+}
+
 pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
     let mut items: Vec<Item> = Vec::new();
     let mut map: HashMap<u32, u64> = HashMap::with_capacity(4);
@@ -89,8 +101,7 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
             max = id;
         }
 
-        let price = rng.gen_range(1, 100);
-        items.push(Item { id, price });
+        items.push(Item { id, sales: get_sales() });
 
         let mut h = FlinkMurmurHash::default();
         id.hash(&mut h);
@@ -107,14 +118,13 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         if hash_id == 1 {
             let mut skew_counter: u64 = 0;
             while skew_counter < 2 {
-                let price = rng.gen_range(1, 100);
                 let id: i32 = rng.gen_range(1, 51);
                 let mut h = FlinkMurmurHash::default();
                 id.hash(&mut h);
                 let hash = h.finish();
                 let hash_id = (hash % parallelism) as u32;
                 if hash_id == 1 {
-                    items.push(Item { id, price });
+                    items.push(Item { id, sales: get_sales() });
                     map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
                     skew_counter += 1;
                     counter += 1;
@@ -146,8 +156,7 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
             max = id;
         }
 
-        let price = rng.gen_range(1, 100);
-        items.push(Item { id, price });
+        items.push(Item { id, sales: get_sales() });
         counter += 1;
 
         let mut h = FlinkMurmurHash::default();
@@ -177,7 +186,10 @@ pub fn generate_data_file(items: Vec<Item>, file: &str) {
         .unwrap();
 
     for item in items {
-        let row_fmt_str = format!("{} {}", item.id, item.price);
+        let vec_fmt = format!("{:?}", item.sales);
+        // Probably the most beautiful code I have ever seen
+        let vecy = vec_fmt.replace("[", "").replace("]", "").replace(", ", ",");
+        let row_fmt_str = format!("{} {}", item.id, vecy.trim());
         let _ = writeln!(file, "{}", row_fmt_str);
     }
 }
@@ -194,8 +206,8 @@ pub fn read_data(path: &str) -> Vec<Item> {
         .map(|line| {
             let s: Vec<&str> = line.split(" ").collect();
             let id = s[0].parse::<i32>().unwrap();
-            let price = s[1].parse::<u64>().unwrap();
-            Item { id, price }
+            let sales: Vec<u64> = s[1].split(",").map(|x| x.parse::<u64>().unwrap()).collect();
+            Item { id, sales }
         })
         .collect()
 }
