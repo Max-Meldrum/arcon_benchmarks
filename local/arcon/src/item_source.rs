@@ -20,8 +20,8 @@ impl ItemSource {
     }
 
     fn send_elements(&mut self) {
-        let items = self.items.take().expect("no");
-        for item in items {
+        let mut items = self.items.take().expect("no");
+        for item in items.drain(..) {
             let _ = self.channel_strategy.output(
                 ArconMessage::element(item, None, 0.into()),
                 &self.ctx.system(),

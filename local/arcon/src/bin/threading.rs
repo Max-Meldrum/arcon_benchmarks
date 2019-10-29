@@ -153,7 +153,7 @@ fn exec(
         .wait_timeout(timeout)
         .expect("sink never started!");
 
-    let sink_ref: ActorRef<ArconMessage<Item>> = sink.actor_ref();
+    let sink_ref: ActorRefStrong<ArconMessage<Item>> = sink.actor_ref().hold().expect("no");
     let sink_channel = Channel::Local(sink_ref);
 
     fn map_fn(item: &Item) -> Item {
@@ -200,7 +200,7 @@ fn exec(
     let mut map_channels: Vec<Channel<Item>> = Vec::new();
 
     for map_comp in &map_comps {
-        let actor_ref: ActorRef<ArconMessage<Item>> = map_comp.actor_ref();
+        let actor_ref: ActorRefStrong<ArconMessage<Item>> = map_comp.actor_ref().hold().expect("no");
         let channel = Channel::Local(actor_ref);
         map_channels.push(channel);
     }

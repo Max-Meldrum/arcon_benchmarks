@@ -63,6 +63,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn handle_event(&mut self, _event: &ArconEvent<A>) {
         if self.total_recv == 0 {
             info!(self.ctx.log(),
@@ -100,6 +101,7 @@ where
         }
     }
 
+    #[inline(always)]
     fn get_current_time(&self) -> u64 {
         let start = SystemTime::now();
         let since_the_epoch = start
