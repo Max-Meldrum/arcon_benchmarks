@@ -56,7 +56,6 @@ fn main() {
 
     let matches = App::new("Arcon Threading benchmark")
         .setting(AppSettings::ColoredHelp)
-        .author(crate_authors!("\n"))
         .version(crate_version!())
         .setting(AppSettings::SubcommandRequired)
         .arg(
@@ -152,8 +151,7 @@ fn exec(
     let timeout = std::time::Duration::from_millis(500);
 
     let mut cfg = KompactConfig::default();
-    // one dedicated thread for the source
-    let threads = kompact_system_threads - 1;
+    let threads = kompact_system_threads - 2;
     cfg.threads(threads);
     if !dedicated {
         cfg.throughput(kompact_throughput as usize);
@@ -163,7 +161,7 @@ fn exec(
     let system = cfg.build().expect("KompactSystem");
 
     let expected_msgs: u64 = 10000000;
-    let sink = system.create(move || ThroughputSink::<EnrichedItem>::new(log_freq, expected_msgs));
+    let sink = system.create_dedicated(move || ThroughputSink::<EnrichedItem>::new(log_freq, expected_msgs));
     let sink_port = sink.on_definition(|cd| cd.sink_port.share());
 
     system

@@ -156,7 +156,7 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
     let mut counter: u64 = 0;
 
     while counter < total_items {
-        let id: i32 = rng.gen_range(1, 51);
+        let id: i32 = rng.gen_range(0, 51);
         if id > max {
             max = id;
         }
@@ -174,6 +174,31 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         let hash = h.finish();
         let hash_id = (hash % parallelism) as u32;
         map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
+
+        if hash_id == 0 {
+            let mut partition_counter: u64 = 0;
+            while partition_counter < 2 {
+                let id: i32 = rng.gen_range(1, 51);
+                let mut h = FlinkMurmurHash::default();
+                id.hash(&mut h);
+                let hash = h.finish();
+                let hash_id = (hash % parallelism) as u32;
+                if hash_id == 0 {
+                    let number = rng.gen_range(1, 100);
+                    items.push(Item {
+                        id,
+                        number,
+                        scaling_factor: 1.0,
+                    });
+                    map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
+                    partition_counter += 1;
+                    counter += 1;
+                    if counter == total_items {
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     println!("MAX {}", max);
