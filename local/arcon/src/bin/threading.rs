@@ -24,7 +24,7 @@ fn main() {
 
     let kompact_throughput_arg = Arg::with_name("k")
         .required(false)
-        .default_value("10000")
+        .default_value("50")
         .takes_value(true)
         .long("Kompact cfg throughput")
         .short("k")
@@ -271,5 +271,5 @@ fn exec(
 
     // wait for sink to return completion msg.
     let res = future.wait();
-    println!("Execution took {:?}", res);
+    println!("Execution took {:?}", res.as_millis());
 }
