@@ -18,7 +18,7 @@ pub mod throughput_sink;
 pub struct Item {
     pub id: i32,
     pub number: u64,
-    pub scaling_factor: u64,
+    pub scaling_factor: f64,
 }
 
 #[arcon]
@@ -100,7 +100,7 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         items.push(Item {
             id,
             number,
-            scaling_factor: 1,
+            scaling_factor: 1.0,
         });
 
         let mut h = FlinkMurmurHash::default();
@@ -128,7 +128,7 @@ pub fn skewed_items(total_items: u64, parallelism: u64) -> Vec<Item> {
                     items.push(Item {
                         id,
                         number,
-                        scaling_factor: 1,
+                        scaling_factor: 1.0,
                     });
                     map.insert(hash_id, map.get(&hash_id).unwrap_or(&0) + 1);
                     skew_counter += 1;
@@ -165,7 +165,7 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
         items.push(Item {
             id,
             number,
-            scaling_factor: 1,
+            scaling_factor: 1.0,
         });
         counter += 1;
 
@@ -217,7 +217,7 @@ pub fn read_data(path: &str) -> Vec<Item> {
             Item {
                 id,
                 number,
-                scaling_factor: 1,
+                scaling_factor: 1.0,
             }
         })
         .collect()

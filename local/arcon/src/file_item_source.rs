@@ -8,13 +8,13 @@ pub struct FileItemSource {
     ctx: ComponentContext<Self>,
     channel_strategy: Box<dyn ChannelStrategy<crate::Item>>,
     file_path: String,
-    scaling_factor: u64,
+    scaling_factor: f64,
 }
 
 impl FileItemSource {
     pub fn new(
         file_path: String,
-        scaling_factor: u64,
+        scaling_factor: f64,
         channel_strategy: Box<dyn ChannelStrategy<crate::Item>>,
     ) -> Self {
         FileItemSource {

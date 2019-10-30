@@ -48,7 +48,7 @@ fn main() {
 
     let scaling_factor_arg = Arg::with_name("s")
         .required(false)
-        .default_value("1")
+        .default_value("1.0")
         .takes_value(true)
         .long("workload scaling")
         .short("s")
@@ -115,7 +115,7 @@ fn main() {
             let scaling_factor = arg_matches
                 .value_of("s")
                 .expect("Should not happen as there is a default")
-                .parse::<u64>()
+                .parse::<f64>()
                 .unwrap();
 
             exec(
@@ -139,7 +139,7 @@ fn fetch_args() -> Vec<String> {
 }
 
 fn exec(
-    scaling_factor: u64,
+    scaling_factor: f64,
     parallelism: u64,
     log_freq: u64,
     kompact_throughput: u64,
@@ -195,14 +195,12 @@ fn exec(
             sum
         }
 
-        let mut sum: u64 = 0;
-        for _i in 0..item.scaling_factor {
-            sum += fibonacci(item.number)
-        }
+        let fib  = (item.number as f64 / 100.0).ceil() * item.scaling_factor;
+        let fib_sum = fibonacci(fib as u64);
 
         EnrichedItem {
             id: item.id,
-            total: sum,
+            total: fib_sum,
         }
     }
 
