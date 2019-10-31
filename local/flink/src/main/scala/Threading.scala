@@ -14,7 +14,15 @@ object Threading {
     val parallelism = args(0).toInt
     val file = args(1)
     val scalingFactor = args(2).toDouble
-    println(s"Running with parallelism ${parallelism}, file ${file}, scalingFactor ${scalingFactor}")
+    val logThroughput = {
+      if (args.length > 3) {
+        true 
+      } else {
+        false
+      }
+    }
+
+    println(s"Running with parallelism ${parallelism}, file ${file}, scalingFactor ${scalingFactor}, logThroughput ${logThroughput}")
     val env: StreamExecutionEnvironment = StreamExecutionEnvironment.getExecutionEnvironment
     env.setMaxParallelism(parallelism) // Sets key-groups
     env.setParallelism(parallelism)
@@ -23,10 +31,10 @@ object Threading {
     println("JOB PAR: " + par)
     println("MAX PAR: " + max)
     // JVM Warmup..
-    1 to 5 foreach { _ => run(env, file, scalingFactor, parallelism) }
+    1 to 5 foreach { _ => run(env, file, scalingFactor, parallelism, logThroughput) }
   }
 
-  def run(env: StreamExecutionEnvironment, path: String, scalingFactor: Double, parallelism: Int) = {
+  def run(env: StreamExecutionEnvironment, path: String, scalingFactor: Double, parallelism: Int, logThroughput: Boolean) = {
     val stream = env.addSource(Sources.itemSource(path, scalingFactor))
       .keyBy(_.id)
       .map(item => {
@@ -53,7 +61,8 @@ object Threading {
         val fibSum = fibonacci(fib.toLong)
         new EnrichedItem(item.id, fibSum)
       }).setParallelism(parallelism)
-      .addSink(new ThroughputSink[EnrichedItem](100000)).setParallelism(1)
+      .addSink(new ThroughputSink[EnrichedItem](100000, logThroughput)).setParallelism(1)
+
 
     println(env.getExecutionPlan)
     val res = env.execute()

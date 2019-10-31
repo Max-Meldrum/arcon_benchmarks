@@ -23,6 +23,7 @@ impl Port for SinkPort {
     type Request = Run;
 }
 
+// Throughput logic taken from: https://github.com/lsds/StreamBench/blob/master/yahoo-streaming-benchmark/src/main/scala/uk/ac/ic/imperial/benchmark/flink/YahooBenchmark.scala
 #[derive(ComponentDefinition)]
 pub struct ThroughputSink<A>
 where
@@ -32,6 +33,7 @@ where
     pub sink_port: ProvidedPort<SinkPort, Self>,
     done: Option<KPromise<Duration>>,
     start: std::time::Instant,
+    log_on: bool,
     expected_msgs: u64,
     log_freq: u64,
     last_total_recv: u64,
@@ -46,12 +48,13 @@ impl<A> ThroughputSink<A>
 where
     A: ArconType + 'static,
 {
-    pub fn new(log_freq: u64, expected_msgs: u64) -> Self {
+    pub fn new(log_freq: u64, log_on: bool, expected_msgs: u64) -> Self {
         ThroughputSink {
             ctx: ComponentContext::new(),
             sink_port: ProvidedPort::new(),
             done: None,
             start: std::time::Instant::now(),
+            log_on,
             expected_msgs,
             log_freq,
             last_total_recv: 0,
@@ -66,12 +69,14 @@ where
     #[inline(always)]
     fn handle_event(&mut self, _event: &ArconEvent<A>) {
         if self.total_recv == 0 {
-            info!(
-                self.ctx.log(),
-                "ThroughputLogging {}, {}",
-                self.get_current_time(),
-                self.total_recv
-            );
+            if self.log_on {
+                info!(
+                    self.ctx.log(),
+                    "ThroughputLogging {}, {}",
+                    self.get_current_time(),
+                    self.total_recv
+                );
+            }
         }
 
         self.total_recv += 1;
@@ -85,18 +90,22 @@ where
                 self.throughput_sum += throughput as f32;
                 self.avg_throughput = self.throughput_sum / self.throughput_counter as f32;
             }
-            info!(
-                self.ctx.log(),
-                "Throughput {}, Average {}", throughput, self.avg_throughput
-            );
+
+            if self.log_on {
+                info!(
+                    self.ctx.log(),
+                    "Throughput {}, Average {}", throughput, self.avg_throughput
+                );
+
+                info!(
+                    self.ctx.log(),
+                    "ThroughputLogging {}, {}",
+                    self.get_current_time(),
+                    self.total_recv
+                );
+            }
             self.last_time = current_time;
             self.last_total_recv = self.total_recv;
-            info!(
-                self.ctx.log(),
-                "ThroughputLogging {}, {}",
-                self.get_current_time(),
-                self.total_recv
-            );
         }
 
         if self.total_recv == self.expected_msgs {

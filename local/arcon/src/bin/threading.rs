@@ -70,6 +70,12 @@ fn main() {
                 .long("dedicated-pinned")
                 .short("p"),
         )
+        .arg(
+            Arg::with_name("log")
+                .help("log-throughput")
+                .long("log pipeline throughput")
+                .short("log"),
+        )
         .subcommand(
             SubCommand::with_name("run")
                 .setting(AppSettings::ColoredHelp)
@@ -84,6 +90,7 @@ fn main() {
 
     let dedicated: bool = matches.is_present("d");
     let pinned: bool = matches.is_present("dp");
+    let log_throughput: bool = matches.is_present("log");
 
     match matches.subcommand() {
         ("run", Some(arg_matches)) => {
@@ -125,6 +132,7 @@ fn main() {
                 kompact_system_threads,
                 dedicated,
                 pinned,
+                log_throughput,
             );
         }
         _ => {
@@ -145,6 +153,7 @@ fn exec(
     kompact_system_threads: usize,
     dedicated: bool,
     pinned: bool,
+    log_throughput: bool,
 ) {
     let core_ids = arcon_local::arcon::prelude::get_core_ids().unwrap();
     let mut core_counter: usize = 0;
@@ -161,7 +170,7 @@ fn exec(
     let system = cfg.build().expect("KompactSystem");
 
     let expected_msgs: u64 = 10000000;
-    let sink = system.create_dedicated(move || ThroughputSink::<EnrichedItem>::new(log_freq, expected_msgs));
+    let sink = system.create_dedicated(move || ThroughputSink::<EnrichedItem>::new(log_freq, log_throughput, expected_msgs));
     let sink_port = sink.on_definition(|cd| cd.sink_port.share());
 
     system

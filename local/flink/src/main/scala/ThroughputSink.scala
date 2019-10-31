@@ -1,7 +1,7 @@
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 
 // Throughput logic taken from: https://github.com/lsds/StreamBench/blob/master/yahoo-streaming-benchmark/src/main/scala/uk/ac/ic/imperial/benchmark/flink/YahooBenchmark.scala
-class ThroughputSink[A](logFreq: Long) extends RichSinkFunction[A] {
+class ThroughputSink[A](logFreq: Long, logOn: Boolean) extends RichSinkFunction[A] {
   private var lastTotalReceived: Long = 0L
   private var lastTime: Long = 0L
   private var totalReceived: Long = 0L
@@ -11,7 +11,9 @@ class ThroughputSink[A](logFreq: Long) extends RichSinkFunction[A] {
   
   override def invoke(input: A) {
     if (totalReceived == 0) {
-          println(s"ThroughputLogging:${System.currentTimeMillis()},${totalReceived}")
+      if (logOn) {
+        println(s"ThroughputLogging:${System.currentTimeMillis()},${totalReceived}")
+      }
     }
     totalReceived += 1
     if (totalReceived % logFreq == 0) {
@@ -22,10 +24,13 @@ class ThroughputSink[A](logFreq: Long) extends RichSinkFunction[A] {
         throughputSum += throughput
         averageThroughput = throughputSum / throughputCounter
       }
-      println(s"Throughput:${throughput}, Average:${averageThroughput}")
+
+      if (logOn) {
+        println(s"Throughput:${throughput}, Average:${averageThroughput}")
+        println(s"ThroughputLogging:${System.currentTimeMillis()},${totalReceived}")
+      }
       lastTime = currentTime
       lastTotalReceived = totalReceived
-      println(s"ThroughputLogging:${System.currentTimeMillis()},${totalReceived}")
     }
   }
 }
