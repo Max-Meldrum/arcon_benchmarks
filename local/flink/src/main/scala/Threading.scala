@@ -38,25 +38,6 @@ object Threading {
     val stream = env.addSource(Sources.itemSource(path, scalingFactor))
       .keyBy(_.id)
       .map(item => {
-        def fibonacci(n: Long): Long  = {
-          if (n == 0) {
-            println("Fib not supposed to take 0");
-            System.exit(1)
-          } else if (n == 1) {
-            return 1
-          }
-
-          var sum = 0
-          var last = 0
-          var curr = 1
-          for( _ <- 1 until n.toInt) {
-            sum = last + curr
-            last = curr
-            curr = sum
-          }
-          sum
-        }
-
         val fib = math.ceil((item.number.toDouble / 100.0)) * item.scalingFactor
         val fibSum = fibonacci(fib.toLong)
         new EnrichedItem(item.id, fibSum)
@@ -68,4 +49,24 @@ object Threading {
     val res = env.execute()
     println("The job took " + res.getNetRuntime() + " to execute");
   }
+
+  def fibonacci(n: Long): Long  = {
+    if (n == 0) {
+      println("Fib not supposed to take 0");
+      System.exit(1)
+    } else if (n == 1) {
+      return 1
+    }
+
+    var sum = 0
+    var last = 0
+    var curr = 1
+    for( _ <- 1 until n.toInt) {
+      sum = last + curr
+      last = curr
+      curr = sum
+    }
+    sum
+  }
+
 }
