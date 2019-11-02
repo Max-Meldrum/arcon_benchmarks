@@ -1,3 +1,4 @@
+package threading;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 
 // Throughput logic taken from: https://github.com/lsds/StreamBench/blob/master/yahoo-streaming-benchmark/src/main/scala/uk/ac/ic/imperial/benchmark/flink/YahooBenchmark.scala

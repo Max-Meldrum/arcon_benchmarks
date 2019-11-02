@@ -1,3 +1,5 @@
+package threading
+
 import org.apache.flink.api.java.io.DiscardingOutputFormat
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.api.functions.sink.SinkFunction
@@ -6,14 +8,14 @@ import org.apache.flink.streaming.api.functions.sink.RichSinkFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction
 import org.apache.flink.streaming.api.functions.source.SourceFunction.SourceContext
 
-case class Item(id: Int, number: Long, scalingFactor: Double)
-case class EnrichedItem(id: Int, total: Long)
+case class Item(id: Int, number: Long, scalingFactor: Int)
+case class EnrichedItem(id: Int, root: Double)
 
 object Threading {
   def main(args: Array[String]) {
     val parallelism = args(0).toInt
     val file = args(1)
-    val scalingFactor = args(2).toDouble
+    val scalingFactor = args(2).toInt
     val logThroughput = {
       if (args.length > 3) {
         true 
@@ -34,13 +36,12 @@ object Threading {
     1 to 5 foreach { _ => run(env, file, scalingFactor, parallelism, logThroughput) }
   }
 
-  def run(env: StreamExecutionEnvironment, path: String, scalingFactor: Double, parallelism: Int, logThroughput: Boolean) = {
+  def run(env: StreamExecutionEnvironment, path: String, scalingFactor: Int, parallelism: Int, logThroughput: Boolean) = {
     val stream = env.addSource(Sources.itemSource(path, scalingFactor))
       .keyBy(_.id)
       .map(item => {
-        val fib = math.ceil((item.number.toDouble / 100.0)) * item.scalingFactor
-        val fibSum = fibonacci(fib.toLong)
-        new EnrichedItem(item.id, fibSum)
+        val root = newtonSqrt(item.number, item.scalingFactor)
+        new EnrichedItem(item.id, root)
       }).setParallelism(parallelism)
       .addSink(new ThroughputSink[EnrichedItem](100000, logThroughput)).setParallelism(1)
 
@@ -50,23 +51,15 @@ object Threading {
     println("The job took " + res.getNetRuntime() + " to execute");
   }
 
-  def fibonacci(n: Long): Long  = {
-    if (n == 0) {
-      println("Fib not supposed to take 0");
-      System.exit(1)
-    } else if (n == 1) {
-      return 1
-    }
+  def newtonSqrt(square: Long, iters: Int): Double = {
+    val target = square.toDouble
+    var currentGuess = target
 
-    var sum = 0
-    var last = 0
-    var curr = 1
-    for( _ <- 1 until n.toInt) {
-      sum = last + curr
-      last = curr
-      curr = sum
+    for( _ <- 0 until iters) {
+      val numerator = currentGuess * currentGuess - target
+      val denom = currentGuess * 2.0
+      currentGuess = currentGuess - (numerator/denom)
     }
-    sum
+    currentGuess
   }
-
 }

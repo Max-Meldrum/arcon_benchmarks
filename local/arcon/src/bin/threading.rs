@@ -48,7 +48,7 @@ fn main() {
 
     let scaling_factor_arg = Arg::with_name("s")
         .required(false)
-        .default_value("1.0")
+        .default_value("1")
         .takes_value(true)
         .long("workload scaling")
         .short("s")
@@ -121,7 +121,7 @@ fn main() {
             let scaling_factor = arg_matches
                 .value_of("s")
                 .expect("Should not happen as there is a default")
-                .parse::<f64>()
+                .parse::<u64>()
                 .unwrap();
 
             exec(
@@ -146,7 +146,7 @@ fn fetch_args() -> Vec<String> {
 }
 
 fn exec(
-    scaling_factor: f64,
+    scaling_factor: u64,
     parallelism: u64,
     log_freq: u64,
     kompact_throughput: u64,
@@ -170,7 +170,9 @@ fn exec(
     let system = cfg.build().expect("KompactSystem");
 
     let expected_msgs: u64 = 10000000;
-    let sink = system.create_dedicated(move || ThroughputSink::<EnrichedItem>::new(log_freq, log_throughput, expected_msgs));
+    let sink = system.create_dedicated(move || {
+        ThroughputSink::<EnrichedItem>::new(log_freq, log_throughput, expected_msgs)
+    });
     let sink_port = sink.on_definition(|cd| cd.sink_port.share());
 
     system
@@ -182,32 +184,23 @@ fn exec(
     let sink_channel = Channel::Local(sink_ref);
 
     fn map_fn(item: Item) -> EnrichedItem {
-        // credit: https://github.com/eliovir/rust-examples/blob/master/fibonacci.rs
         #[inline(always)]
-        fn fibonacci(n: u64) -> u64 {
-            if n == 0 {
-                panic!("zero is not a right argument to fibonacci()!");
-            } else if n == 1 {
-                return 1;
+        fn square_root_newton(square: u64, iters: usize) -> f64 {
+            let target = square as f64;
+            let mut current_guess = target;
+            for _ in 0..iters {
+                let numerator = current_guess * current_guess - target;
+                let denom = current_guess * 2.0;
+                current_guess = current_guess - (numerator / denom);
             }
-
-            let mut sum = 0;
-            let mut last = 0;
-            let mut curr = 1;
-            for _i in 1..n {
-                sum = last + curr;
-                last = curr;
-                curr = sum;
-            }
-            sum
+            current_guess
         }
 
-        let fib  = (item.number as f64 / 100.0).ceil() * item.scaling_factor;
-        let fib_sum = fibonacci(fib as u64);
+        let root = square_root_newton(item.number, item.scaling_factor as usize);
 
         EnrichedItem {
             id: item.id,
-            total: fib_sum,
+            root,
         }
     }
 
