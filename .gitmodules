@@ -1,4 +1,4 @@
 [submodule "arcon"]
   path = arcon
   url = git@github.com:Max-Meldrum/arcon.git
-  branch = arcon_rework
+  branch = arcon_benchmarks_thesis
