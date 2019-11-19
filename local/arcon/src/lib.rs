@@ -209,6 +209,26 @@ pub fn uniform_items(total_items: u64, parallelism: u64) -> Vec<Item> {
     items
 }
 
+pub fn partition_reader(parallelism: u64, items: Vec<Item>) {
+    println!("Total items: {}", items.len());
+    let mut map: HashMap<u32, u64> = HashMap::new();
+
+    for item in items {
+        let mut h = FlinkMurmurHash::default();
+        item.hash(&mut h);
+        let hash = h.finish();
+        let hash_id = (hash % parallelism) as u32;
+        if let Some(x) = map.get_mut(&hash_id) {
+            *x = *x + 1;
+        } else {
+            map.insert(hash_id, 1);
+        }
+    }
+    for (id, count) in map.iter() {
+        println!("Partition ID {} with count {}", id, count);
+    }
+}
+
 pub fn generate_data_file(items: Vec<Item>, file: &str) {
     use std::fs::OpenOptions;
     use std::io::Write;
